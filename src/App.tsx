@@ -42,26 +42,46 @@ export default function App() {
     });
   };
 
+  const isFiltered = searchTerm || filterResume !== 'all' || filterType !== 'all' || filterStatus !== 'all' || filterDate;
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterResume('all');
+    setFilterType('all');
+    setFilterStatus('all');
+    setFilterDate('');
+  };
+
   const filteredJobs = useMemo(() => {
-    return jobs.filter(job => {
-      const matchesSearch = job.company.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    return jobs
+      .filter(job => {
+        const matchesSearch = job.company.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             job.title.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesResume = filterResume === 'all' || job.resume === filterResume;
-      const matchesType = filterType === 'all' || job.jobType === filterType;
-      const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
-      const matchesDate = !filterDate || job.date.split('T')[0] === filterDate;
-      return matchesSearch && matchesResume && matchesType && matchesStatus && matchesDate;
-    });
+        const matchesResume = filterResume === 'all' || job.resume === filterResume;
+        const matchesType = filterType === 'all' || job.jobType === filterType;
+        const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
+        const jobDateStr = job.date.split('T')[0];
+        const matchesDate = !filterDate || jobDateStr === filterDate;
+        return matchesSearch && matchesResume && matchesType && matchesStatus && matchesDate;
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [jobs, searchTerm, filterResume, filterType, filterStatus, filterDate]);
 
   const handleOpenModal = (job?: Job) => {
-    setEditingJob(job ? { ...job, oldCompany: job.company } : { 
-      date: new Date().toISOString().split('T')[0], 
-      status: 'Applied', 
-      location: 'Remote',
-      jobType: 'Full-time',
-      resume: 'Frontend Developer'
-    });
+    if (job) {
+      setEditingJob({ ...job, oldCompany: job.company, date: job.date.split('T')[0] });
+    } else {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const localISODate = (new Date(now.getTime() - offset)).toISOString().split('T')[0];
+      setEditingJob({ 
+        date: localISODate, 
+        status: 'Applied', 
+        location: 'Remote',
+        jobType: 'Full-time',
+        resume: 'Frontend Developer'
+      });
+    }
     setIsModalOpen(true);
   };
 
@@ -71,7 +91,7 @@ export default function App() {
     setIsModalOpen(false);
     const payload = { action: 'upsert', ...editingJob, appliedDate: editingJob?.date };
     await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-    setTimeout(() => loadData(), 1000);
+    setTimeout(() => loadData(), 1200);
   };
 
   const handleDelete = async (company: string) => {
@@ -84,29 +104,35 @@ export default function App() {
     setDeleteConfirm(null);
     const payload = { action: 'delete', company: company };
     await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-    setTimeout(() => loadData(), 1000);
+    setTimeout(() => loadData(), 1200);
   };
 
   const getDaysAgo = (dateStr: string) => {
     if (!dateStr) return 0;
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const appliedDate = new Date(dateStr);
-    appliedDate.setHours(0, 0, 0, 0);
-    const diff = Math.floor((today.getTime() - appliedDate.getTime()) / 86400000);
+    today.setHours(0,0,0,0);
+    const parts = dateStr.split('T')[0].split('-');
+    const applied = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    const diff = Math.floor((today.getTime() - applied.getTime()) / 86400000);
     return diff < 0 ? 0 : diff;
+  };
+
+  const formatDateLabel = (dateStr: string) => {
+    const parts = dateStr.split('T')[0].split('-');
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-[#1a1a1a] font-sans antialiased">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 px-6 py-4 flex justify-between items-center shadow-sm">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 px-6 py-4 flex justify-between items-center shadow-sm">
         <h1 className="text-lg font-bold tracking-tight">🔍 CareerArc</h1>
         <button onClick={() => handleOpenModal()} className="bg-[#2563eb] text-white px-5 py-2 rounded-lg font-semibold text-sm shadow-md active:scale-95 transition-all">
           + Add Job
         </button>
       </header>
 
-      <main className="max-w-4xl mx-auto p-6 pb-24">
+      <main className="max-w-4xl mx-auto p-4 md:p-6 pb-24">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatCard label="Total" val={jobs.length} color="text-gray-900" />
@@ -116,32 +142,41 @@ export default function App() {
         </div>
 
         {/* Toolbar */}
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-500 font-medium">Showing <b>{filteredJobs.length}</b> applications</p>
+        <div className="flex justify-between items-center mb-4 px-1">
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-500 font-medium">
+              Showing <span className="text-gray-900 font-bold">{filteredJobs.length}</span>
+            </p>
+            {isFiltered && (
+              <button onClick={resetFilters} className="text-xs text-blue-600 font-bold hover:underline">
+                Reset
+              </button>
+            )}
+          </div>
           <button onClick={() => setShowFilters(!showFilters)} className={`text-xs font-bold border px-4 py-2 rounded-lg transition-all ${showFilters ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-300'}`}>
-            Filters
+            {showFilters ? 'Hide Filters' : 'Filters'}
           </button>
         </div>
 
-        {/* Filter Panel */}
+        {/* Filters */}
         {showFilters && (
           <div className="bg-white border border-gray-200 p-5 rounded-xl mb-6 shadow-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <FilterGroup label="Search"><input type="text" placeholder="Company..." className="input-field" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></FilterGroup>
               <FilterGroup label="Resume">
                 <select className="input-field" value={filterResume} onChange={e => setFilterResume(e.target.value)}>
-                  <option value="all">All</option>
+                  <option value="all">All Resume</option>
                   <option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option>
                 </select>
               </FilterGroup>
               <FilterGroup label="Type">
                 <select className="input-field" value={filterType} onChange={e => setFilterType(e.target.value)}>
-                  <option value="all">All</option><option>Full-time</option><option>Contract</option>
+                  <option value="all">All Type</option><option>Full-time</option><option>Contract</option>
                 </select>
               </FilterGroup>
               <FilterGroup label="Status">
                 <select className="input-field" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                  <option value="all">All</option><option>Applied</option><option>Interviewing</option><option>Rejected</option>
+                  <option value="all">All Status</option><option>Applied</option><option>Interviewing</option><option>Rejected</option>
                 </select>
               </FilterGroup>
               <FilterGroup label="Date"><input type="date" className="input-field" value={filterDate} onChange={e => setFilterDate(e.target.value)} /></FilterGroup>
@@ -150,34 +185,32 @@ export default function App() {
         )}
 
         {/* Job List */}
-        <div className="space-y-2">
-          {loading && jobs.length === 0 ? <div className="text-center py-20 opacity-40 font-bold uppercase tracking-widest text-xs">Syncing Data...</div> : 
+        <div className="space-y-3">
+          {loading && jobs.length === 0 ? <div className="text-center py-20 opacity-40 font-bold uppercase tracking-widest text-xs">Syncing...</div> : 
             filteredJobs.map((job, i) => (
               <div key={i} className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-blue-200 transition-all">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 mb-2 flex-wrap">
-                    <span className="font-bold text-gray-900 text-lg">{job.company}</span>
+                    <span className="font-bold text-gray-900 text-lg leading-tight">{job.company}</span>
                     <span className="text-gray-500 text-sm font-medium">{job.title}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Badge text={formatDateLabel(job.date)} color="gray" />
                     <Badge text={`${getDaysAgo(job.date)}d ago`} color={getDaysAgo(job.date) > 7 ? 'red' : 'gray'} />
                     <Badge text={`📄 ${job.resume}`} color="blue" />
                     <Badge text={job.jobType} color="purple" />
                     {job.salary && <Badge text={`💰 ${job.salary}`} color="green" />}
-                    <Badge text={job.location} color={job.location === 'Remote' ? 'indigo' : 'emerald'} />
                     <Badge text={job.status} color={job.status === 'Interviewing' ? 'green' : job.status === 'Rejected' ? 'red' : 'yellow'} />
                   </div>
                 </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center border-t md:border-t-0 pt-3 md:pt-0">
                   {job.url && <a href={job.url} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all">↗</a>}
                   <button onClick={() => handleOpenModal(job)} className="px-4 py-2 border border-gray-200 text-xs font-bold rounded-lg hover:bg-gray-50 transition-all">Edit</button>
                   <button 
                     onClick={() => handleDelete(job.company)}
-                    className={`transition-all px-3 py-2 rounded-lg text-xs font-bold ${deleteConfirm === job.company ? 'bg-red-600 text-white animate-pulse' : 'text-red-400 hover:bg-red-50'}`}
+                    className={`transition-all px-3 py-2 rounded-lg text-xs font-bold ${deleteConfirm === job.company ? 'bg-red-600 text-white' : 'text-red-400 hover:bg-red-50'}`}
                   >
-                    {deleteConfirm === job.company ? 'Confirm?' : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    )}
+                    {deleteConfirm === job.company ? 'Confirm?' : 'Del'}
                   </button>
                 </div>
               </div>
@@ -186,19 +219,16 @@ export default function App() {
         </div>
       </main>
 
-      {/* Modal - Mobile Optimized */}
+      {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl my-auto">
-            <form onSubmit={handleSync} className="flex flex-col max-h-[90vh]">
-              <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
-                <h2 className="font-bold text-gray-800">
-                  {editingJob?.oldCompany ? 'Update Entry' : 'New Application'}
-                </h2>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-400 text-2xl leading-none p-2">×</button>
+            <form onSubmit={handleSync} className="flex flex-col max-h-[85vh]">
+              <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl shrink-0">
+                <h2 className="font-bold text-gray-800">{editingJob?.oldCompany ? 'Update Entry' : 'New Application'}</h2>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-400 text-2xl p-2 leading-none">×</button>
               </div>
-              
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto">
+              <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FilterGroup label="Date"><input type="date" required value={editingJob?.date} onChange={e => setEditingJob({...editingJob, date: e.target.value})} className="input-field" /></FilterGroup>
                 <FilterGroup label="Location"><select value={editingJob?.location} onChange={e => setEditingJob({...editingJob, location: e.target.value})} className="input-field"><option>Local</option><option>Remote</option></select></FilterGroup>
                 <div className="md:col-span-2"><FilterGroup label="Company"><input type="text" required value={editingJob?.company} onChange={e => setEditingJob({...editingJob, company: e.target.value})} className="input-field" /></FilterGroup></div>
@@ -209,8 +239,7 @@ export default function App() {
                 <FilterGroup label="Status"><select value={editingJob?.status} onChange={e => setEditingJob({...editingJob, status: e.target.value})} className="input-field"><option>Applied</option><option>Interviewing</option><option>Rejected</option></select></FilterGroup>
                 <div className="md:col-span-2"><FilterGroup label="Application URL"><input type="url" value={editingJob?.url} onChange={e => setEditingJob({...editingJob, url: e.target.value})} className="input-field" /></FilterGroup></div>
               </div>
-              
-              <div className="p-6 border-t bg-gray-50 shrink-0">
+              <div className="p-6 border-t bg-gray-50 rounded-b-2xl shrink-0">
                 <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold active:scale-[0.98] transition-all">Save Application</button>
               </div>
             </form>
