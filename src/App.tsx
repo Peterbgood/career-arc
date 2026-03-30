@@ -20,7 +20,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null); // For Two-Step Delete
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,10 +77,9 @@ export default function App() {
   const handleDelete = async (company: string) => {
     if (deleteConfirm !== company) {
       setDeleteConfirm(company);
-      setTimeout(() => setDeleteConfirm(null), 3000); // Reset after 3 seconds
+      setTimeout(() => setDeleteConfirm(null), 3000);
       return;
     }
-    
     setLoading(true);
     setDeleteConfirm(null);
     const payload = { action: 'delete', company: company };
@@ -89,7 +88,12 @@ export default function App() {
   };
 
   const getDaysAgo = (dateStr: string) => {
-    const diff = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 86400000);
+    if (!dateStr) return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const appliedDate = new Date(dateStr);
+    appliedDate.setHours(0, 0, 0, 0);
+    const diff = Math.floor((today.getTime() - appliedDate.getTime()) / 86400000);
     return diff < 0 ? 0 : diff;
   };
 
@@ -102,7 +106,7 @@ export default function App() {
         </button>
       </header>
 
-      <main className="max-w-4xl mx-auto p-6">
+      <main className="max-w-4xl mx-auto p-6 pb-24">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatCard label="Total" val={jobs.length} color="text-gray-900" />
@@ -167,8 +171,6 @@ export default function App() {
                 <div className="flex gap-2 items-center">
                   {job.url && <a href={job.url} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all">↗</a>}
                   <button onClick={() => handleOpenModal(job)} className="px-4 py-2 border border-gray-200 text-xs font-bold rounded-lg hover:bg-gray-50 transition-all">Edit</button>
-                  
-                  {/* Two-Step Delete Button */}
                   <button 
                     onClick={() => handleDelete(job.company)}
                     className={`transition-all px-3 py-2 rounded-lg text-xs font-bold ${deleteConfirm === job.company ? 'bg-red-600 text-white animate-pulse' : 'text-red-400 hover:bg-red-50'}`}
@@ -184,16 +186,19 @@ export default function App() {
         </div>
       </main>
 
-      {/* Modal */}
+      {/* Modal - Mobile Optimized */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-            <form onSubmit={handleSync}>
-              <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                <h2 className="font-bold text-gray-800">{editingJob?.oldCompany ? 'Update Entry' : 'New Application'}</h2>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-400 text-xl leading-none">×</button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl my-auto">
+            <form onSubmit={handleSync} className="flex flex-col max-h-[90vh]">
+              <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                <h2 className="font-bold text-gray-800">
+                  {editingJob?.oldCompany ? 'Update Entry' : 'New Application'}
+                </h2>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-400 text-2xl leading-none p-2">×</button>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto">
                 <FilterGroup label="Date"><input type="date" required value={editingJob?.date} onChange={e => setEditingJob({...editingJob, date: e.target.value})} className="input-field" /></FilterGroup>
                 <FilterGroup label="Location"><select value={editingJob?.location} onChange={e => setEditingJob({...editingJob, location: e.target.value})} className="input-field"><option>Local</option><option>Remote</option></select></FilterGroup>
                 <div className="md:col-span-2"><FilterGroup label="Company"><input type="text" required value={editingJob?.company} onChange={e => setEditingJob({...editingJob, company: e.target.value})} className="input-field" /></FilterGroup></div>
@@ -204,8 +209,9 @@ export default function App() {
                 <FilterGroup label="Status"><select value={editingJob?.status} onChange={e => setEditingJob({...editingJob, status: e.target.value})} className="input-field"><option>Applied</option><option>Interviewing</option><option>Rejected</option></select></FilterGroup>
                 <div className="md:col-span-2"><FilterGroup label="Application URL"><input type="url" value={editingJob?.url} onChange={e => setEditingJob({...editingJob, url: e.target.value})} className="input-field" /></FilterGroup></div>
               </div>
-              <div className="p-6 border-t bg-gray-50 flex gap-3">
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 active:scale-95 transition-all">Save Application</button>
+              
+              <div className="p-6 border-t bg-gray-50 shrink-0">
+                <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold active:scale-[0.98] transition-all">Save Application</button>
               </div>
             </form>
           </div>
