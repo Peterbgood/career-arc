@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+/* Custom utility for your form fields */
+@layer components {
+  .input-field {
+    @apply border border-gray-300 rounded-lg px-3 py-2 text-sm 
+           focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+           outline-none transition-all w-full h-10
+           bg-white text-gray-900 shadow-sm;
+  }
+}
+
+/* Optional: Clean up the body background to make the white inputs pop */
+body {
+  @apply bg-[#f5f6f8] antialiased;
+}
+
+/* Fix for Select arrows in some browsers */
+select.input-field {
+  appearance: auto;
+  background-image: none;
+}
