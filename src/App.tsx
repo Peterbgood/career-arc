@@ -21,7 +21,8 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  
+  const [showTopBtn, setShowTopBtn] = useState(false); // ADDED: Visibility state
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterResume, setFilterResume] = useState('all');
   const [filterType, setFilterType] = useState('all');
@@ -29,6 +30,15 @@ export default function App() {
   const [filterDate, setFilterDate] = useState('');
 
   const [editingJob, setEditingJob] = useState<Partial<Job> & { oldCompany?: string } | null>(null);
+
+  // ADDED: Scroll Listener
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowTopBtn(window.scrollY > 400);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => { loadData(); }, []);
 
@@ -41,7 +51,6 @@ export default function App() {
   };
 
   // --- DATE REPAIR LOGIC ---
-  
   const getTodayString = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -99,7 +108,6 @@ export default function App() {
   }, [jobs, searchTerm, filterResume, filterType, filterStatus, filterDate]);
 
   // --- ACTIONS ---
-
   const handleOpenModal = (job?: Job) => {
     if (job) {
       setEditingJob({ ...job, oldCompany: job.company, date: fromSheetDate(job.date) });
@@ -134,6 +142,11 @@ export default function App() {
     setDeleteConfirm(null);
     await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'delete', company }) });
     setTimeout(() => loadData(), 1500);
+  };
+
+  // ADDED: Scroll Function
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -209,9 +222,23 @@ export default function App() {
         </div>
       </main>
 
-      <button onClick={() => handleOpenModal()} className="md:hidden fixed bottom-6 right-6 w-16 h-16 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center z-50">
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-      </button>
+      {/* Floating Buttons Group */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
+        {/* ADDED: Back to Top Button */}
+        {showTopBtn && (
+          <button 
+            onClick={scrollToTop} 
+            className="w-12 h-12 bg-white border border-slate-200 text-slate-900 rounded-full shadow-2xl flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-300 hover:bg-slate-50"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" /></svg>
+          </button>
+        )}
+        
+        {/* Mobile New Entry Button */}
+        <button onClick={() => handleOpenModal()} className="md:hidden w-16 h-16 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center">
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+        </button>
+      </div>
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
