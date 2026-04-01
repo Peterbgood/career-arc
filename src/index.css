@@ -1,22 +1,38 @@
 @import "tailwindcss";
 
-/* Custom utility for your form fields */
+/* 1. Global Reset / Body Styles */
+body {
+  @apply bg-[#f5f6f8] antialiased text-slate-900;
+}
+
+/* 2. Unified Input Field Styles */
 @layer components {
   .input-field {
-    @apply border border-gray-300 rounded-lg px-3 py-2 text-sm 
-           focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-           outline-none transition-all w-full h-10
-           bg-white text-gray-900 shadow-sm;
+    /* Layout & Sizing */
+    @apply w-full px-4 py-3 text-sm font-semibold;
+    min-height: 46px; /* Essential for mobile alignment consistency */
+
+    /* Aesthetics */
+    @apply bg-slate-50 border border-slate-200 rounded-xl shadow-sm;
+    
+    /* Interactions */
+    @apply outline-none transition-all;
+    @apply focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500;
+    
+    /* Browser-specific resets */
+    @apply appearance-none;
   }
-}
 
-/* Optional: Clean up the body background to make the white inputs pop */
-body {
-  @apply bg-[#f5f6f8] antialiased;
-}
+  /* Specific fix for Date Inputs on Mobile */
+  input[type="date"].input-field {
+    display: flex;
+    align-items: center;
+    line-height: normal;
+  }
 
-/* Fix for Select arrows in some browsers */
-select.input-field {
-  appearance: auto;
-  background-image: none;
+  /* Ensure Select arrows are visible and styled correctly */
+  select.input-field {
+    appearance: auto;
+    background-image: none;
+  }
 }

@@ -59,7 +59,7 @@ export default function App() {
   const toSheetDate = (isoDate: string) => {
     if (!isoDate) return "";
     const [y, m, d] = isoDate.split('-');
-    return `${m}/${d}/${y}`; 
+    return `${m}/${d}/${y}`;
   };
 
   const fromSheetDate = (dateStr: string) => {
@@ -79,7 +79,7 @@ export default function App() {
   };
 
   const getDaysAgo = (dateStr: string) => {
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const [y, m, d] = fromSheetDate(dateStr).split('-').map(Number);
     const applied = new Date(y, m - 1, d);
     const diff = Math.floor((today.getTime() - applied.getTime()) / 86400000);
@@ -96,8 +96,8 @@ export default function App() {
   const filteredJobs = useMemo(() => {
     return jobs
       .filter(job => {
-        const matchesSearch = job.company.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            job.title.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          job.title.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesResume = filterResume === 'all' || job.resume === filterResume;
         const matchesType = filterType === 'all' || job.jobType === filterType;
         const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
@@ -112,8 +112,8 @@ export default function App() {
     if (job) {
       setEditingJob({ ...job, oldCompany: job.company, date: fromSheetDate(job.date) });
     } else {
-      setEditingJob({ 
-        date: getTodayString(), 
+      setEditingJob({
+        date: getTodayString(),
         status: 'Applied', location: 'Remote', jobType: 'Full-time', resume: 'Frontend Developer', salary: ''
       });
     }
@@ -124,10 +124,10 @@ export default function App() {
     e.preventDefault();
     setLoading(true);
     setIsModalOpen(false);
-    
+
     const sheetDate = toSheetDate(editingJob?.date || "");
     const payload = { ...editingJob, date: sheetDate, appliedDate: sheetDate, action: 'upsert' };
-    
+
     await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
     setTimeout(() => loadData(), 1500);
   };
@@ -187,14 +187,21 @@ export default function App() {
             <FilterGroup label="Resume"><select className="input-field" value={filterResume} onChange={e => setFilterResume(e.target.value)}><option value="all">All Resumes</option><option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option></select></FilterGroup>
             <FilterGroup label="Type"><select className="input-field" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="all">All Types</option><option>Full-time</option><option>Part-time</option><option>Contract</option></select></FilterGroup>
             <FilterGroup label="Status"><select className="input-field" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="all">All Status</option><option>Applied</option><option>Interviewing</option><option>Rejected</option></select></FilterGroup>
-            <FilterGroup label="Date"><input type="date" className="input-field" value={filterDate} onChange={e => setFilterDate(e.target.value)} /></FilterGroup>
+            <FilterGroup label="Date">
+              <input
+                type="date"
+                className="input-field w-full"
+                value={filterDate}
+                onChange={e => setFilterDate(e.target.value)}
+              />
+            </FilterGroup>
           </div>
         )}
 
         <div className="space-y-4">
           {loading && jobs.length === 0 ? (
             <div className="text-center py-32 opacity-50 font-black uppercase tracking-widest text-xs">Syncing Database...</div>
-          ) : 
+          ) :
             filteredJobs.map((job, i) => (
               <div key={i} className="group bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex-1 min-w-0">
@@ -226,14 +233,14 @@ export default function App() {
       <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
         {/* ADDED: Back to Top Button */}
         {showTopBtn && (
-          <button 
-            onClick={scrollToTop} 
+          <button
+            onClick={scrollToTop}
             className="w-12 h-12 bg-white border border-slate-200 text-slate-900 rounded-full shadow-2xl flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-300 hover:bg-slate-50"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" /></svg>
           </button>
         )}
-        
+
         {/* Mobile New Entry Button */}
         <button onClick={() => handleOpenModal()} className="md:hidden w-16 h-16 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center">
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
@@ -251,18 +258,18 @@ export default function App() {
               <div className="p-8 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FilterGroup label="Date Applied">
                   <div className="flex gap-2">
-                    <input type="date" required value={editingJob?.date} onChange={e => setEditingJob({...editingJob, date: e.target.value})} className="input-field flex-1" />
-                    <button type="button" onClick={() => setEditingJob({...editingJob, date: getTodayString()})} className="bg-slate-100 px-3 rounded-xl text-[10px] font-black hover:bg-blue-100 transition-colors">Today</button>
+                    <input type="date" required value={editingJob?.date} onChange={e => setEditingJob({ ...editingJob, date: e.target.value })} className="input-field flex-1" />
+                    <button type="button" onClick={() => setEditingJob({ ...editingJob, date: getTodayString() })} className="bg-slate-100 px-3 rounded-xl text-[10px] font-black hover:bg-blue-100 transition-colors">Today</button>
                   </div>
                 </FilterGroup>
-                <FilterGroup label="Location"><select value={editingJob?.location} onChange={e => setEditingJob({...editingJob, location: e.target.value})} className="input-field"><option>Local</option><option>Remote</option></select></FilterGroup>
-                <div className="md:col-span-2"><FilterGroup label="Company Name"><input type="text" required value={editingJob?.company} onChange={e => setEditingJob({...editingJob, company: e.target.value})} className="input-field" /></FilterGroup></div>
-                <div className="md:col-span-2"><FilterGroup label="Job Title"><input type="text" required value={editingJob?.title} onChange={e => setEditingJob({...editingJob, title: e.target.value})} className="input-field" /></FilterGroup></div>
-                <FilterGroup label="Resume Used"><select value={editingJob?.resume} onChange={e => setEditingJob({...editingJob, resume: e.target.value})} className="input-field"><option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option></select></FilterGroup>
-                <FilterGroup label="Job Type"><select value={editingJob?.jobType} onChange={e => setEditingJob({...editingJob, jobType: e.target.value})} className="input-field"><option>Full-time</option><option>Part-time</option><option>Contract</option></select></FilterGroup>
-                <FilterGroup label="Salary"><input type="text" value={editingJob?.salary} onChange={e => setEditingJob({...editingJob, salary: e.target.value})} className="input-field" /></FilterGroup>
-                <FilterGroup label="Status"><select value={editingJob?.status} onChange={e => setEditingJob({...editingJob, status: e.target.value})} className="input-field"><option>Applied</option><option>Interviewing</option><option>Rejected</option></select></FilterGroup>
-                <div className="md:col-span-2"><FilterGroup label="Listing URL"><input type="url" value={editingJob?.url} onChange={e => setEditingJob({...editingJob, url: e.target.value})} className="input-field" /></FilterGroup></div>
+                <FilterGroup label="Location"><select value={editingJob?.location} onChange={e => setEditingJob({ ...editingJob, location: e.target.value })} className="input-field"><option>Local</option><option>Remote</option></select></FilterGroup>
+                <div className="md:col-span-2"><FilterGroup label="Company Name"><input type="text" required value={editingJob?.company} onChange={e => setEditingJob({ ...editingJob, company: e.target.value })} className="input-field" /></FilterGroup></div>
+                <div className="md:col-span-2"><FilterGroup label="Job Title"><input type="text" required value={editingJob?.title} onChange={e => setEditingJob({ ...editingJob, title: e.target.value })} className="input-field" /></FilterGroup></div>
+                <FilterGroup label="Resume Used"><select value={editingJob?.resume} onChange={e => setEditingJob({ ...editingJob, resume: e.target.value })} className="input-field"><option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option></select></FilterGroup>
+                <FilterGroup label="Job Type"><select value={editingJob?.jobType} onChange={e => setEditingJob({ ...editingJob, jobType: e.target.value })} className="input-field"><option>Full-time</option><option>Part-time</option><option>Contract</option></select></FilterGroup>
+                <FilterGroup label="Salary"><input type="text" value={editingJob?.salary} onChange={e => setEditingJob({ ...editingJob, salary: e.target.value })} className="input-field" /></FilterGroup>
+                <FilterGroup label="Status"><select value={editingJob?.status} onChange={e => setEditingJob({ ...editingJob, status: e.target.value })} className="input-field"><option>Applied</option><option>Interviewing</option><option>Rejected</option></select></FilterGroup>
+                <div className="md:col-span-2"><FilterGroup label="Listing URL"><input type="url" value={editingJob?.url} onChange={e => setEditingJob({ ...editingJob, url: e.target.value })} className="input-field" /></FilterGroup></div>
               </div>
               <div className="p-8 border-t border-slate-100 bg-slate-50/50 rounded-b-[32px]">
                 <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-600 transition-all shadow-lg">Save Application</button>
