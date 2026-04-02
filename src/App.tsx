@@ -21,7 +21,7 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [showTopBtn, setShowTopBtn] = useState(false); // ADDED: Visibility state
+  const [showTopBtn, setShowTopBtn] = useState(false); 
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterResume, setFilterResume] = useState('all');
@@ -31,7 +31,6 @@ export default function App() {
 
   const [editingJob, setEditingJob] = useState<Partial<Job> & { oldCompany?: string } | null>(null);
 
-  // ADDED: Scroll Listener
   useEffect(() => {
     const handleScroll = () => {
       setShowTopBtn(window.scrollY > 400);
@@ -50,7 +49,6 @@ export default function App() {
     });
   };
 
-  // --- DATE REPAIR LOGIC ---
   const getTodayString = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -86,7 +84,6 @@ export default function App() {
     return diff < 0 ? 0 : diff;
   };
 
-  // --- LOGIC CONSTANTS ---
   const isFiltered = !!(searchTerm || filterResume !== 'all' || filterType !== 'all' || filterStatus !== 'all' || filterDate);
 
   const resetFilters = () => {
@@ -107,7 +104,6 @@ export default function App() {
       .sort((a, b) => fromSheetDate(b.date).localeCompare(fromSheetDate(a.date)));
   }, [jobs, searchTerm, filterResume, filterType, filterStatus, filterDate]);
 
-  // --- ACTIONS ---
   const handleOpenModal = (job?: Job) => {
     if (job) {
       setEditingJob({ ...job, oldCompany: job.company, date: fromSheetDate(job.date) });
@@ -144,7 +140,6 @@ export default function App() {
     setTimeout(() => loadData(), 1500);
   };
 
-  // ADDED: Scroll Function
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -186,7 +181,8 @@ export default function App() {
             <FilterGroup label="Search"><input type="text" placeholder="Company..." className="input-field" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></FilterGroup>
             <FilterGroup label="Resume"><select className="input-field" value={filterResume} onChange={e => setFilterResume(e.target.value)}><option value="all">All Resumes</option><option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option></select></FilterGroup>
             <FilterGroup label="Type"><select className="input-field" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="all">All Types</option><option>Full-time</option><option>Part-time</option><option>Contract</option></select></FilterGroup>
-            <FilterGroup label="Status"><select className="input-field" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="all">All Status</option><option>Applied</option><option>Interviewing</option><option>Rejected</option></select></FilterGroup>
+            {/* ADDED: Ghosted to Filter */}
+            <FilterGroup label="Status"><select className="input-field" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="all">All Status</option><option>Applied</option><option>Interviewing</option><option>Rejected</option><option>Ghosted</option></select></FilterGroup>
             <FilterGroup label="Date">
               <input
                 type="date"
@@ -215,7 +211,16 @@ export default function App() {
                     <Badge text={job.jobType} color="emerald" />
                     {job.salary && <Badge text={job.salary} color="purple" />}
                     <Badge text={job.resume} color="indigo" />
-                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${job.status === 'Interviewing' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : job.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{job.status}</div>
+                    
+                    {/* UPDATED: Status Badge Logic for Ghosted */}
+                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                      job.status === 'Interviewing' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                      job.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                      job.status === 'Ghosted' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                      'bg-amber-50 text-amber-600 border-amber-100'
+                    }`}>
+                      {job.status}
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-2 items-center w-full md:w-auto border-t md:border-none pt-4 md:pt-0">
@@ -229,9 +234,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* Floating Buttons Group */}
       <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
-        {/* ADDED: Back to Top Button */}
         {showTopBtn && (
           <button
             onClick={scrollToTop}
@@ -241,7 +244,6 @@ export default function App() {
           </button>
         )}
 
-        {/* Mobile New Entry Button */}
         <button onClick={() => handleOpenModal()} className="md:hidden w-16 h-16 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center">
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
         </button>
@@ -268,7 +270,8 @@ export default function App() {
                 <FilterGroup label="Resume Used"><select value={editingJob?.resume} onChange={e => setEditingJob({ ...editingJob, resume: e.target.value })} className="input-field"><option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option></select></FilterGroup>
                 <FilterGroup label="Job Type"><select value={editingJob?.jobType} onChange={e => setEditingJob({ ...editingJob, jobType: e.target.value })} className="input-field"><option>Full-time</option><option>Part-time</option><option>Contract</option></select></FilterGroup>
                 <FilterGroup label="Salary"><input type="text" value={editingJob?.salary} onChange={e => setEditingJob({ ...editingJob, salary: e.target.value })} className="input-field" /></FilterGroup>
-                <FilterGroup label="Status"><select value={editingJob?.status} onChange={e => setEditingJob({ ...editingJob, status: e.target.value })} className="input-field"><option>Applied</option><option>Interviewing</option><option>Rejected</option></select></FilterGroup>
+                {/* ADDED: Ghosted to Modal Select */}
+                <FilterGroup label="Status"><select value={editingJob?.status} onChange={e => setEditingJob({ ...editingJob, status: e.target.value })} className="input-field"><option>Applied</option><option>Interviewing</option><option>Rejected</option><option>Ghosted</option></select></FilterGroup>
                 <div className="md:col-span-2"><FilterGroup label="Listing URL"><input type="url" value={editingJob?.url} onChange={e => setEditingJob({ ...editingJob, url: e.target.value })} className="input-field" /></FilterGroup></div>
               </div>
               <div className="p-8 border-t border-slate-100 bg-slate-50/50 rounded-b-[32px]">
