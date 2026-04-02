@@ -90,6 +90,16 @@ export default function App() {
     setSearchTerm(''); setFilterResume('all'); setFilterType('all'); setFilterStatus('all'); setFilterDate('');
   };
 
+  // Helper to toggle status from cards
+  const toggleStatusFilter = (status: string) => {
+    if (filterStatus === status) {
+      setFilterStatus('all');
+    } else {
+      setFilterStatus(status);
+      setShowFilters(true); // Open filter panel so user sees what happened
+    }
+  };
+
   const filteredJobs = useMemo(() => {
     return jobs
       .filter(job => {
@@ -159,11 +169,32 @@ export default function App() {
       </header>
 
       <main className="max-w-5xl mx-auto p-4 md:p-8 pb-32">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* UPDATED: Added Rejected and Ghosted Cards with click handlers */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <StatCard label="Total" val={jobs.length} icon="📊" />
           <StatCard label="Remote" val={jobs.filter(j => j.location === 'Remote').length} icon="🏠" />
           <StatCard label="Contract" val={jobs.filter(j => j.jobType === 'Contract').length} icon="⚡" />
-          <StatCard label="Interviews" val={jobs.filter(j => j.status === 'Interviewing').length} icon="🎯" />
+          <StatCard 
+            label="Interviews" 
+            val={jobs.filter(j => j.status === 'Interviewing').length} 
+            icon="🎯" 
+            onClick={() => toggleStatusFilter('Interviewing')}
+            active={filterStatus === 'Interviewing'}
+          />
+          <StatCard 
+            label="Rejected" 
+            val={jobs.filter(j => j.status === 'Rejected').length} 
+            icon="✖" 
+            onClick={() => toggleStatusFilter('Rejected')}
+            active={filterStatus === 'Rejected'}
+          />
+          <StatCard 
+            label="Ghosted" 
+            val={jobs.filter(j => j.status === 'Ghosted').length} 
+            icon="👻" 
+            onClick={() => toggleStatusFilter('Ghosted')}
+            active={filterStatus === 'Ghosted'}
+          />
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 bg-white/50 p-2 rounded-2xl border border-white shadow-sm">
@@ -181,7 +212,6 @@ export default function App() {
             <FilterGroup label="Search"><input type="text" placeholder="Company..." className="input-field" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></FilterGroup>
             <FilterGroup label="Resume"><select className="input-field" value={filterResume} onChange={e => setFilterResume(e.target.value)}><option value="all">All Resumes</option><option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option></select></FilterGroup>
             <FilterGroup label="Type"><select className="input-field" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="all">All Types</option><option>Full-time</option><option>Part-time</option><option>Contract</option></select></FilterGroup>
-            {/* ADDED: Ghosted to Filter */}
             <FilterGroup label="Status"><select className="input-field" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="all">All Status</option><option>Applied</option><option>Interviewing</option><option>Rejected</option><option>Ghosted</option></select></FilterGroup>
             <FilterGroup label="Date">
               <input
@@ -212,7 +242,6 @@ export default function App() {
                     {job.salary && <Badge text={job.salary} color="purple" />}
                     <Badge text={job.resume} color="indigo" />
                     
-                    {/* UPDATED: Status Badge Logic for Ghosted */}
                     <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                       job.status === 'Interviewing' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                       job.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
@@ -270,7 +299,6 @@ export default function App() {
                 <FilterGroup label="Resume Used"><select value={editingJob?.resume} onChange={e => setEditingJob({ ...editingJob, resume: e.target.value })} className="input-field"><option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option></select></FilterGroup>
                 <FilterGroup label="Job Type"><select value={editingJob?.jobType} onChange={e => setEditingJob({ ...editingJob, jobType: e.target.value })} className="input-field"><option>Full-time</option><option>Part-time</option><option>Contract</option></select></FilterGroup>
                 <FilterGroup label="Salary"><input type="text" value={editingJob?.salary} onChange={e => setEditingJob({ ...editingJob, salary: e.target.value })} className="input-field" /></FilterGroup>
-                {/* ADDED: Ghosted to Modal Select */}
                 <FilterGroup label="Status"><select value={editingJob?.status} onChange={e => setEditingJob({ ...editingJob, status: e.target.value })} className="input-field"><option>Applied</option><option>Interviewing</option><option>Rejected</option><option>Ghosted</option></select></FilterGroup>
                 <div className="md:col-span-2"><FilterGroup label="Listing URL"><input type="url" value={editingJob?.url} onChange={e => setEditingJob({ ...editingJob, url: e.target.value })} className="input-field" /></FilterGroup></div>
               </div>
@@ -285,11 +313,18 @@ export default function App() {
   )
 }
 
-const StatCard = ({ label, val, icon }: any) => (
-  <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm relative group overflow-hidden">
-    <div className="absolute top-0 right-0 p-4 opacity-10 text-2xl">{icon}</div>
+// UPDATED: StatCard component to handle clicks and active state
+const StatCard = ({ label, val, icon, onClick, active }: any) => (
+  <div 
+    onClick={onClick}
+    className={`bg-white border p-6 rounded-3xl shadow-sm relative group overflow-hidden transition-all duration-300 ${
+      onClick ? 'cursor-pointer hover:shadow-md hover:border-blue-400 active:scale-95' : ''
+    } ${active ? 'border-blue-500 ring-2 ring-blue-50' : 'border-slate-200'}`}
+  >
+    <div className="absolute top-0 right-0 p-4 opacity-10 text-2xl group-hover:scale-110 transition-transform">{icon}</div>
     <div className="text-3xl font-black text-slate-900">{val}</div>
     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{label}</div>
+    {active && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500" />}
   </div>
 );
 
