@@ -14,6 +14,7 @@ interface Job {
 }
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbyApDqMKCN17ubbkpHLqolVMlmN3gmnSFyTGCQP1uJcUK0vG_FGBwDMcS3ceEVpNs4O/exec';
+const JOBS_PER_PAGE = 25;
 
 export default function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -23,23 +24,28 @@ export default function App() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [showTopBtn, setShowTopBtn] = useState(false); 
 
+  // Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [filterResume, setFilterResume] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('');
+  const [filterLocation, setFilterLocation] = useState('all');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [editingJob, setEditingJob] = useState<Partial<Job> & { oldCompany?: string } | null>(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setShowTopBtn(window.scrollY > 400);
-    };
+    const handleScroll = () => setShowTopBtn(window.scrollY > 400);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterResume, filterType, filterStatus, filterDate, filterLocation]);
 
   const loadData = () => {
     setLoading(true);
@@ -84,22 +90,6 @@ export default function App() {
     return diff < 0 ? 0 : diff;
   };
 
-  const isFiltered = !!(searchTerm || filterResume !== 'all' || filterType !== 'all' || filterStatus !== 'all' || filterDate);
-
-  const resetFilters = () => {
-    setSearchTerm(''); setFilterResume('all'); setFilterType('all'); setFilterStatus('all'); setFilterDate('');
-  };
-
-  // Helper to toggle status from cards
-  const toggleStatusFilter = (status: string) => {
-    if (filterStatus === status) {
-      setFilterStatus('all');
-    } else {
-      setFilterStatus(status);
-      setShowFilters(true); // Open filter panel so user sees what happened
-    }
-  };
-
   const filteredJobs = useMemo(() => {
     return jobs
       .filter(job => {
@@ -109,10 +99,48 @@ export default function App() {
         const matchesType = filterType === 'all' || job.jobType === filterType;
         const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
         const matchesDate = !filterDate || fromSheetDate(job.date) === filterDate;
-        return matchesSearch && matchesResume && matchesType && matchesStatus && matchesDate;
+        const matchesLocation = filterLocation === 'all' || job.location === filterLocation;
+        return matchesSearch && matchesResume && matchesType && matchesStatus && matchesDate && matchesLocation;
       })
       .sort((a, b) => fromSheetDate(b.date).localeCompare(fromSheetDate(a.date)));
-  }, [jobs, searchTerm, filterResume, filterType, filterStatus, filterDate]);
+  }, [jobs, searchTerm, filterResume, filterType, filterStatus, filterDate, filterLocation]);
+
+  const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
+  const paginatedJobs = useMemo(() => {
+    const start = (currentPage - 1) * JOBS_PER_PAGE;
+    return filteredJobs.slice(start, start + JOBS_PER_PAGE);
+  }, [filteredJobs, currentPage]);
+
+  const isFiltered = !!(searchTerm || filterResume !== 'all' || filterType !== 'all' || filterStatus !== 'all' || filterDate || filterLocation !== 'all');
+
+  const resetFilters = () => {
+    setSearchTerm(''); setFilterResume('all'); setFilterType('all'); setFilterStatus('all'); setFilterDate(''); setFilterLocation('all');
+  };
+
+  const toggleTodayFilter = () => {
+    const today = getTodayString();
+    if (filterDate === today) {
+      setFilterDate('');
+    } else {
+      setFilterDate(today);
+      if (window.innerWidth >= 768) setShowFilters(true);
+    }
+  };
+
+  const toggleLocationFilter = (loc: string) => {
+    if (filterLocation === loc) { setFilterLocation('all'); } 
+    else { setFilterLocation(loc); if (window.innerWidth >= 768) setShowFilters(true); }
+  };
+
+  const toggleStatusFilter = (status: string) => {
+    if (filterStatus === status) { setFilterStatus('all'); } 
+    else { setFilterStatus(status); if (window.innerWidth >= 768) setShowFilters(true); }
+  };
+
+  const toggleTypeFilter = (type: string) => {
+    if (filterType === type) { setFilterType('all'); } 
+    else { setFilterType(type); if (window.innerWidth >= 768) setShowFilters(true); }
+  };
 
   const handleOpenModal = (job?: Job) => {
     if (job) {
@@ -130,10 +158,8 @@ export default function App() {
     e.preventDefault();
     setLoading(true);
     setIsModalOpen(false);
-
     const sheetDate = toSheetDate(editingJob?.date || "");
     const payload = { ...editingJob, date: sheetDate, appliedDate: sheetDate, action: 'upsert' };
-
     await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
     setTimeout(() => loadData(), 1500);
   };
@@ -150,9 +176,7 @@ export default function App() {
     setTimeout(() => loadData(), 1500);
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans">
@@ -169,32 +193,13 @@ export default function App() {
       </header>
 
       <main className="max-w-5xl mx-auto p-4 md:p-8 pb-32">
-        {/* UPDATED: Added Rejected and Ghosted Cards with click handlers */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <StatCard label="Total" val={jobs.length} icon="📊" />
-          <StatCard label="Remote" val={jobs.filter(j => j.location === 'Remote').length} icon="🏠" />
-          <StatCard label="Contract" val={jobs.filter(j => j.jobType === 'Contract').length} icon="⚡" />
-          <StatCard 
-            label="Interviews" 
-            val={jobs.filter(j => j.status === 'Interviewing').length} 
-            icon="🎯" 
-            onClick={() => toggleStatusFilter('Interviewing')}
-            active={filterStatus === 'Interviewing'}
-          />
-          <StatCard 
-            label="Rejected" 
-            val={jobs.filter(j => j.status === 'Rejected').length} 
-            icon="✖" 
-            onClick={() => toggleStatusFilter('Rejected')}
-            active={filterStatus === 'Rejected'}
-          />
-          <StatCard 
-            label="Ghosted" 
-            val={jobs.filter(j => j.status === 'Ghosted').length} 
-            icon="👻" 
-            onClick={() => toggleStatusFilter('Ghosted')}
-            active={filterStatus === 'Ghosted'}
-          />
+          <StatCard label="Today's Apps" val={jobs.filter(j => fromSheetDate(j.date) === getTodayString()).length} icon="📅" onClick={toggleTodayFilter} active={filterDate === getTodayString()} />
+          <StatCard label="Local" val={jobs.filter(j => j.location === 'Local').length} icon="📍" onClick={() => toggleLocationFilter('Local')} active={filterLocation === 'Local'} />
+          <StatCard label="Contract" val={jobs.filter(j => j.jobType === 'Contract').length} icon="⚡" onClick={() => toggleTypeFilter('Contract')} active={filterType === 'Contract'} />
+          <StatCard label="Interviews" val={jobs.filter(j => j.status === 'Interviewing').length} icon="🎯" onClick={() => toggleStatusFilter('Interviewing')} active={filterStatus === 'Interviewing'} />
+          <StatCard label="Rejected" val={jobs.filter(j => j.status === 'Rejected').length} icon="✖" onClick={() => toggleStatusFilter('Rejected')} active={filterStatus === 'Rejected'} />
+          <StatCard label="Ghosted" val={jobs.filter(j => j.status === 'Ghosted').length} icon="👻" onClick={() => toggleStatusFilter('Ghosted')} active={filterStatus === 'Ghosted'} />
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 bg-white/50 p-2 rounded-2xl border border-white shadow-sm">
@@ -210,69 +215,71 @@ export default function App() {
         {showFilters && (
           <div className="bg-white border border-slate-200 p-6 rounded-3xl mb-8 shadow-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             <FilterGroup label="Search"><input type="text" placeholder="Company..." className="input-field" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></FilterGroup>
-            <FilterGroup label="Resume"><select className="input-field" value={filterResume} onChange={e => setFilterResume(e.target.value)}><option value="all">All Resumes</option><option>Frontend Developer</option><option>Business Analyst</option><option>Marketing Specialist</option></select></FilterGroup>
+            <FilterGroup label="Location"><select className="input-field" value={filterLocation} onChange={e => setFilterLocation(e.target.value)}><option value="all">All Locations</option><option>Remote</option><option>Local</option></select></FilterGroup>
             <FilterGroup label="Type"><select className="input-field" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="all">All Types</option><option>Full-time</option><option>Part-time</option><option>Contract</option></select></FilterGroup>
             <FilterGroup label="Status"><select className="input-field" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="all">All Status</option><option>Applied</option><option>Interviewing</option><option>Rejected</option><option>Ghosted</option></select></FilterGroup>
-            <FilterGroup label="Date">
-              <input
-                type="date"
-                className="input-field w-full"
-                value={filterDate}
-                onChange={e => setFilterDate(e.target.value)}
-              />
-            </FilterGroup>
+            <FilterGroup label="Date"><input type="date" className="input-field w-full" value={filterDate} onChange={e => setFilterDate(e.target.value)} /></FilterGroup>
           </div>
         )}
 
         <div className="space-y-4">
           {loading && jobs.length === 0 ? (
             <div className="text-center py-32 opacity-50 font-black uppercase tracking-widest text-xs">Syncing Database...</div>
-          ) :
-            filteredJobs.map((job, i) => (
-              <div key={i} className="group bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-3">
-                    <h3 className="font-bold text-slate-900 text-xl leading-none">{job.company}</h3>
-                    <p className="text-slate-400 font-semibold text-sm">/ {job.title}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <Badge text={formatFriendlyDate(job.date)} color="slate" />
-                    <Badge text={`${getDaysAgo(job.date)}d ago`} color={getDaysAgo(job.date) > 7 ? 'red' : 'blue'} />
-                    <Badge text={job.jobType} color="emerald" />
-                    {job.salary && <Badge text={job.salary} color="purple" />}
-                    <Badge text={job.resume} color="indigo" />
-                    
-                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                      job.status === 'Interviewing' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                      job.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
-                      job.status === 'Ghosted' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-                      'bg-amber-50 text-amber-600 border-amber-100'
-                    }`}>
-                      {job.status}
+          ) : (
+            <>
+              {paginatedJobs.map((job, i) => (
+                <div key={i} className="group bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-3">
+                      <h3 className="font-bold text-slate-900 text-xl leading-none">{job.company}</h3>
+                      <p className="text-slate-400 font-semibold text-sm">/ {job.title}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <Badge text={formatFriendlyDate(job.date)} color="slate" />
+                      <Badge text={`${getDaysAgo(job.date)}d ago`} color={getDaysAgo(job.date) > 7 ? 'red' : 'blue'} />
+                      <Badge text={job.location} color={job.location === 'Remote' ? 'emerald' : 'indigo'} />
+                      <Badge text={job.jobType} color="slate" />
+                      {job.salary && <Badge text={job.salary} color="purple" />}
+                      <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                        job.status === 'Interviewing' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                        job.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                        job.status === 'Ghosted' ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-amber-50 text-amber-600 border-amber-100'
+                      }`}>{job.status}</div>
                     </div>
                   </div>
+                  <div className="flex gap-2 items-center w-full md:w-auto border-t md:border-none pt-4 md:pt-0">
+                    {job.url && <a href={job.url} target="_blank" rel="noreferrer" className="w-12 h-12 flex items-center justify-center bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 transition-all shadow-sm">↗</a>}
+                    <button onClick={() => handleOpenModal(job)} className="flex-1 md:flex-none px-6 py-3 border border-slate-200 text-xs font-bold rounded-xl hover:bg-slate-50 transition-all">Edit</button>
+                    <button onClick={() => handleDelete(job.company)} className={`h-12 px-4 rounded-xl transition-all font-bold text-xs ${deleteConfirm === job.company ? 'bg-rose-600 text-white' : 'text-rose-400 hover:bg-rose-50'}`}>{deleteConfirm === job.company ? 'Confirm' : 'Del'}</button>
+                  </div>
                 </div>
-                <div className="flex gap-2 items-center w-full md:w-auto border-t md:border-none pt-4 md:pt-0">
-                  {job.url && <a href={job.url} target="_blank" rel="noreferrer" className="w-12 h-12 flex items-center justify-center bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 transition-all shadow-sm">↗</a>}
-                  <button onClick={() => handleOpenModal(job)} className="flex-1 md:flex-none px-6 py-3 border border-slate-200 text-xs font-bold rounded-xl hover:bg-slate-50 transition-all">Edit</button>
-                  <button onClick={() => handleDelete(job.company)} className={`h-12 px-4 rounded-xl transition-all font-bold text-xs ${deleteConfirm === job.company ? 'bg-rose-600 text-white' : 'text-rose-400 hover:bg-rose-50'}`}>{deleteConfirm === job.company ? 'Confirm' : 'Del'}</button>
+              ))}
+
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mt-12 bg-white/50 p-6 rounded-[32px] border border-white shadow-sm">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Page {currentPage} of {totalPages}</span>
+                  <div className="flex items-center gap-2">
+                    <button disabled={currentPage === 1} onClick={() => { setCurrentPage(p => p - 1); scrollToTop(); }} className="px-4 py-2 rounded-xl border border-slate-200 font-bold text-xs disabled:opacity-20 hover:bg-white transition-all">Previous</button>
+                    <div className="flex gap-1">
+                      {[...Array(totalPages)].map((_, i) => (
+                        <button key={i} onClick={() => { setCurrentPage(i+1); scrollToTop(); }} className={`w-10 h-10 rounded-xl font-bold text-xs transition-all ${currentPage === i+1 ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200'}`}>{i+1}</button>
+                      ))}
+                    </div>
+                    <button disabled={currentPage === totalPages} onClick={() => { setCurrentPage(p => p + 1); scrollToTop(); }} className="px-4 py-2 rounded-xl border border-slate-200 font-bold text-xs disabled:opacity-20 hover:bg-white transition-all">Next</button>
+                  </div>
                 </div>
-              </div>
-            ))
-          }
+              )}
+            </>
+          )}
         </div>
       </main>
 
       <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
         {showTopBtn && (
-          <button
-            onClick={scrollToTop}
-            className="w-12 h-12 bg-white border border-slate-200 text-slate-900 rounded-full shadow-2xl flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-300 hover:bg-slate-50"
-          >
+          <button onClick={scrollToTop} className="w-12 h-12 bg-white border border-slate-200 text-slate-900 rounded-full shadow-2xl flex items-center justify-center hover:bg-slate-50 transition-all">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" /></svg>
           </button>
         )}
-
         <button onClick={() => handleOpenModal()} className="md:hidden w-16 h-16 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center">
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
         </button>
@@ -313,14 +320,8 @@ export default function App() {
   )
 }
 
-// UPDATED: StatCard component to handle clicks and active state
 const StatCard = ({ label, val, icon, onClick, active }: any) => (
-  <div 
-    onClick={onClick}
-    className={`bg-white border p-6 rounded-3xl shadow-sm relative group overflow-hidden transition-all duration-300 ${
-      onClick ? 'cursor-pointer hover:shadow-md hover:border-blue-400 active:scale-95' : ''
-    } ${active ? 'border-blue-500 ring-2 ring-blue-50' : 'border-slate-200'}`}
-  >
+  <div onClick={onClick} className={`bg-white border p-6 rounded-3xl shadow-sm relative group overflow-hidden transition-all duration-300 ${onClick ? 'cursor-pointer hover:shadow-md hover:border-blue-400 active:scale-95' : 'border-slate-200'} ${active ? 'border-blue-500 ring-2 ring-blue-50' : 'border-slate-200'}`}>
     <div className="absolute top-0 right-0 p-4 opacity-10 text-2xl group-hover:scale-110 transition-transform">{icon}</div>
     <div className="text-3xl font-black text-slate-900">{val}</div>
     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{label}</div>
@@ -333,13 +334,6 @@ const FilterGroup = ({ label, children }: any) => (
 );
 
 const Badge = ({ text, color }: any) => {
-  const themes: any = {
-    blue: 'bg-blue-50 text-blue-600 border-blue-100',
-    slate: 'bg-slate-100 text-slate-600 border-slate-200',
-    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-    purple: 'bg-purple-50 text-purple-600 border-purple-100',
-    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    red: 'bg-rose-50 text-rose-600 border-rose-100',
-  }
-  return <span className={`px-2.5 py-1 border rounded-lg text-[10px] font-bold ${themes[color] || themes.slate}`}>{text}</span>
+  const themes: any = { blue: 'bg-blue-50 text-blue-600', slate: 'bg-slate-100 text-slate-600', indigo: 'bg-indigo-50 text-indigo-600', purple: 'bg-purple-50 text-purple-600', emerald: 'bg-emerald-50 text-emerald-600', red: 'bg-rose-50 text-rose-600' }
+  return <span className={`px-2.5 py-1 border border-transparent rounded-lg text-[10px] font-bold ${themes[color] || themes.slate}`}>{text}</span>
 };
